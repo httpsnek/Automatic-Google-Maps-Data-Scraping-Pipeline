@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Maps Hunter v2</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #1a1d27;
+      border-bottom: 1px solid #2d3148;
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    header h1 { font-size: 1.3rem; font-weight: 700; color: #fff; }
+    header .subtitle { font-size: 0.82rem; color: #64748b; }
+
+    /* ── Filter rows ── */
+    .filter-row {
+      padding: 14px 32px 0;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filter-row .row-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-right: 4px;
+    }
+    .filter-row a {
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      text-decoration: none;
+      border: 1px solid #2d3148;
+      color: #94a3b8;
+      transition: all .15s;
+    }
+    .filter-row a:hover { border-color: #4f6ef7; color: #4f6ef7; }
+    .filter-row a.active { background: #4f6ef7; border-color: #4f6ef7; color: #fff; }
+
+    /* Category pill colours (on cards) */
+    .cat-badge {
+      font-size: 0.7rem; font-weight: 600;
+      padding: 2px 9px; border-radius: 10px;
+      background: #1e2235; color: #818cf8;
+      border: 1px solid #2d3148;
+      white-space: nowrap;
+    }
+
+    /* ── Grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 16px;
+      padding: 20px 32px 60px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: border-color .15s, opacity .3s, transform .3s;
+    }
+    .card:hover { border-color: #4f6ef7; }
+    .card.removing {
+      opacity: 0;
+      transform: scale(0.96);
+      pointer-events: none;
+    }
+
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .card-name   { font-size: 1rem; font-weight: 600; color: #fff; line-height: 1.3; }
+
+    .badge {
+      font-size: 0.72rem; font-weight: 600;
+      padding: 3px 10px; border-radius: 12px;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .badge-new       { background: #1e3a5f; color: #60a5fa; }
+    .badge-contacted { background: #14532d; color: #4ade80; }
+    .badge-rejected  { background: #450a0a; color: #f87171; }
+
+    .meta { display: flex; flex-direction: column; gap: 5px; }
+    .meta-row {
+      display: flex; align-items: flex-start; gap: 8px;
+      font-size: 0.82rem; color: #94a3b8;
+    }
+    .meta-row .icon { width: 15px; flex-shrink: 0; opacity: .55; margin-top: 1px; }
+    .meta-row a { color: #818cf8; text-decoration: none; word-break: break-all; }
+    .meta-row a:hover { text-decoration: underline; }
+
+    .rating-row { display: flex; align-items: center; gap: 6px; }
+    .stars   { color: #fbbf24; font-size: 0.85rem; }
+    .reviews { font-size: 0.78rem; color: #64748b; }
+
+    .social-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: #1e2235; border: 1px solid #2d3148;
+      border-radius: 6px; padding: 4px 10px;
+      font-size: 0.75rem; color: #a78bfa;
+      text-decoration: none; word-break: break-all;
+    }
+    .social-chip:hover { border-color: #a78bfa; }
+
+    .divider { height: 1px; background: #2d3148; }
+
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 7px 14px; border-radius: 8px;
+      font-size: 0.8rem; font-weight: 500;
+      border: none; cursor: pointer;
+      text-decoration: none; transition: opacity .15s;
+    }
+    .btn:hover { opacity: .82; }
+    .btn-maps      { background: #1e3a5f; color: #60a5fa; }
+    .btn-wa        { background: #14532d; color: #4ade80; }
+    .btn-contacted { background: #1e3a5f; color: #93c5fd; }
+    .btn-rejected  { background: #450a0a; color: #fca5a5; }
+    .btn-reset     { background: #1e2235; color: #94a3b8; }
+    .btn[disabled] { opacity: .35; pointer-events: none; }
+
+    /* ── Empty state ── */
+    .empty {
+      grid-column: 1/-1; text-align: center;
+      padding: 60px 20px; color: #475569;
+    }
+    .empty p { font-size: 1rem; margin-top: 8px; }
+
+    /* ── Toast ── */
+    #toast-container {
+      position: fixed; bottom: 28px; left: 50%;
+      transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      z-index: 9999; pointer-events: none;
+    }
+    .toast {
+      background: #1e2235; border: 1px solid #2d3148;
+      color: #e2e8f0; border-radius: 10px;
+      padding: 12px 20px; font-size: 0.85rem;
+      display: flex; align-items: center; gap: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.5);
+      pointer-events: all;
+      animation: slideUp .25s ease;
+    }
+    .toast.fade-out { animation: fadeOut .3s ease forwards; }
+    .toast-undo {
+      background: #4f6ef7; color: #fff;
+      border: none; border-radius: 6px;
+      padding: 4px 12px; font-size: 0.78rem; font-weight: 600;
+      cursor: pointer;
+    }
+    @keyframes slideUp  { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
+    @keyframes fadeOut  { to   { opacity:0; transform:translateY(8px); } }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🗺 Maps Hunter</h1>
+  <span class="subtitle">Prague leads without a real website</span>
+</header>
+
+<nav class="filter-row">
+  <span class="row-label">Status</span>
+  {% for key, label in [("new","New"), ("contacted","Contacted"), ("rejected","Rejected"), ("all","All")] %}
+  <a href="/?status={{ key }}&category={{ category_filter }}"
+     class="{{ 'active' if status_filter == key else '' }}">
+    {{ label }}{% if status_counts.get(key) %} ({{ status_counts[key] }}){% endif %}
+  </a>
+  {% endfor %}
+</nav>
+
+<nav class="filter-row" style="padding-top:8px;">
+  <span class="row-label">Niche</span>
+  <a href="/?status={{ status_filter }}&category=all"
+     class="{{ 'active' if category_filter == 'all' else '' }}">All niches</a>
+  {% for key, label in category_labels.items() %}
+  <a href="/?status={{ status_filter }}&category={{ key }}"
+     class="{{ 'active' if category_filter == key else '' }}">
+    {{ label }}{% if category_counts.get(key) %} ({{ category_counts[key] }}){% endif %}
+  </a>
+  {% endfor %}
+</nav>
+
+<div class="grid" id="lead-grid">
+  {% if not leads %}
+  <div class="empty">
+    <div style="font-size:2.5rem">🍽</div>
+    <p>No leads here yet.</p>
+  </div>
+  {% endif %}
+
+  {% for lead in leads %}
+  <div class="card" id="card-{{ lead.id }}" data-status="{{ lead.status }}">
+
+    <div class="card-header">
+      <div class="card-name">{{ lead.name }}</div>
+      <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+        {% if lead.category %}
+        <span class="cat-badge">{{ category_labels.get(lead.category, lead.category) }}</span>
+        {% endif %}
+        <span class="badge badge-{{ lead.status }}" id="badge-{{ lead.id }}">{{ lead.status }}</span>
+      </div>
+    </div>
+
+    <div class="meta">
+      {% if lead.address and lead.address != "N/A" %}
+      <div class="meta-row">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+          <circle cx="12" cy="9" r="2.5"/>
+        </svg>
+        {{ lead.address }}
+      </div>
+      {% endif %}
+
+      {% if lead.phone and lead.phone != "N/A" %}
+      <div class="meta-row">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 10.8 19.79 19.79 0 01.01 2.18 2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z"/>
+        </svg>
+        {{ lead.phone }}
+      </div>
+      {% endif %}
+
+      {% if lead.rating %}
+      <div class="meta-row rating-row">
+        <span class="stars">★</span>
+        <strong style="color:#e2e8f0">{{ "%.1f"|format(lead.rating) }}</strong>
+        {% if lead.reviews_count %}
+          <span class="reviews">({{ "{:,}".format(lead.reviews_count) }} reviews)</span>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    {% if lead.social_link %}
+    <div>
+      <a class="social-chip" href="{{ lead.social_link }}" target="_blank" rel="noopener">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+          <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+        </svg>
+        {{ lead.social_link | truncate(50, True) }}
+      </a>
+    </div>
+    {% endif %}
+
+    <div class="divider"></div>
+
+    <!-- External links -->
+    <div class="actions">
+      {% if lead.maps_url %}
+      <a class="btn btn-maps" href="{{ lead.maps_url }}" target="_blank" rel="noopener">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+        </svg>
+        Open Maps
+      </a>
+      {% endif %}
+
+      {% if lead.wa_url %}
+      <a class="btn btn-wa" href="{{ lead.wa_url }}" target="_blank" rel="noopener">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+        </svg>
+        WhatsApp
+      </a>
+      {% endif %}
+    </div>
+
+    <!-- Status actions -->
+    <div class="actions">
+      {% if lead.status != "contacted" %}
+      <button class="btn btn-contacted"
+              onclick="setStatus({{ lead.id }}, 'contacted', this)">✓ Contacted</button>
+      {% endif %}
+
+      {% if lead.status != "rejected" %}
+      <button class="btn btn-rejected"
+              onclick="setStatus({{ lead.id }}, 'rejected', this)">✕ Reject</button>
+      {% endif %}
+
+      {% if lead.status != "new" %}
+      <button class="btn btn-reset"
+              onclick="setStatus({{ lead.id }}, 'new', this)">↺ Reset</button>
+      {% endif %}
+    </div>
+
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<script>
+  const CURRENT_FILTER   = "{{ status_filter }}";
+  const CURRENT_CATEGORY = "{{ category_filter }}";
+
+  async function setStatus(id, newStatus, btn) {
+    // Disable all buttons on this card immediately
+    const card = document.getElementById(`card-${id}`);
+    card.querySelectorAll('button').forEach(b => b.disabled = true);
+
+    const prevStatus = card.dataset.status;
+
+    try {
+      const res = await fetch(`/api/status/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error);
+    } catch (e) {
+      // Re-enable on failure
+      card.querySelectorAll('button').forEach(b => b.disabled = false);
+      showToast(`Error: ${e.message}`, null, null);
+      return;
+    }
+
+    // Update card badge in-place
+    const badge = document.getElementById(`badge-${id}`);
+    badge.className = `badge badge-${newStatus}`;
+    badge.textContent = newStatus;
+    card.dataset.status = newStatus;
+
+    // If this card no longer belongs in the current filter view, remove it
+    const shouldHide = CURRENT_FILTER !== 'all' && CURRENT_FILTER !== newStatus;
+    if (shouldHide) {
+      removeCard(card);
+    } else {
+      // Refresh action buttons inside the card
+      refreshActions(card, id, newStatus);
+    }
+
+    // Show undo toast
+    const label = newStatus === 'contacted' ? 'Contacted' : newStatus === 'rejected' ? 'Rejected' : 'Reset';
+    showToast(`Marked as "${label}"`, id, prevStatus);
+  }
+
+  function refreshActions(card, id, status) {
+    const container = card.querySelectorAll('.actions')[1];
+    container.innerHTML = '';
+
+    if (status !== 'contacted') {
+      container.innerHTML += `<button class="btn btn-contacted" onclick="setStatus(${id},'contacted',this)">✓ Contacted</button>`;
+    }
+    if (status !== 'rejected') {
+      container.innerHTML += `<button class="btn btn-rejected" onclick="setStatus(${id},'rejected',this)">✕ Reject</button>`;
+    }
+    if (status !== 'new') {
+      container.innerHTML += `<button class="btn btn-reset" onclick="setStatus(${id},'new',this)">↺ Reset</button>`;
+    }
+  }
+
+  function removeCard(card) {
+    card.classList.add('removing');
+    card.addEventListener('transitionend', () => {
+      card.remove();
+      // Show empty state if grid is now empty
+      const grid = document.getElementById('lead-grid');
+      if (!grid.querySelector('.card')) {
+        grid.innerHTML = `
+          <div class="empty">
+            <div style="font-size:2.5rem">✅</div>
+            <p>All done — nothing left in this view.</p>
+          </div>`;
+      }
+    }, { once: true });
+  }
+
+  // ── Toast ──────────────────────────────────────────────────────────────────
+  let toastTimers = {};
+
+  function showToast(message, undoId, undoStatus) {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+
+    let html = `<span>${message}</span>`;
+    if (undoId !== null && undoStatus !== null) {
+      html += `<button class="toast-undo" onclick="undoStatus(${undoId},'${undoStatus}',this.closest('.toast'))">Undo</button>`;
+    }
+    toast.innerHTML = html;
+    container.appendChild(toast);
+
+    const timer = setTimeout(() => dismissToast(toast), 4500);
+    toast._timer = timer;
+  }
+
+  function dismissToast(toast) {
+    clearTimeout(toast._timer);
+    toast.classList.add('fade-out');
+    toast.addEventListener('animationend', () => toast.remove(), { once: true });
+  }
+
+  async function undoStatus(id, prevStatus, toast) {
+    dismissToast(toast);
+    // Find the card — it may have been removed; if so we need a page reload
+    const card = document.getElementById(`card-${id}`);
+    if (card) {
+      await setStatus(id, prevStatus, null);
+    } else {
+      // Card was removed from DOM — update DB then reload to bring it back
+      await fetch(`/api/status/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: prevStatus }),
+      });
+      window.location.reload();
+    }
+  }
+</script>
+
+</body>
+</html>
